@@ -16,6 +16,7 @@ static const char *const machineIdResetFile = "/etc/gemian/machine-id-reset";
 static const char *const sshHostResetFile = "/etc/gemian/ssh-host-reset";
 static const std::string_view etcMachineIdFile("/etc/machine-id");
 static const std::string_view dbusMachineIdFile("/var/lib/dbus/machine-id");
+static const char *const operationPerformedContent = "done";
 
 void createFile(const std::string &path, std::string_view content) {
     std::ofstream stream(path);
@@ -64,7 +65,7 @@ int main() {
         system("dbus-uuidgen --ensure=/etc/machine-id");
         system("dbus-uuidgen --ensure");
         std::filesystem::create_directory(etcGemianDirectory);
-        createFile(machineIdResetFile,"yes");
+        createFile(machineIdResetFile, operationPerformedContent);
     }
 
     if (!std::filesystem::exists(sshHostResetFile)) {
@@ -75,7 +76,7 @@ int main() {
         }
         system("dpkg-reconfigure openssh-server");
         std::filesystem::create_directory(etcGemianDirectory);
-        createFile(sshHostResetFile,"yes");
+        createFile(sshHostResetFile, operationPerformedContent);
     }
 
     return 0;
