@@ -1,0 +1,11 @@
+[Unit]
+Description=Gemian Setup
+Before=android-rootfs.mount
+
+[Service]
+Type=oneshot
+ExecStart=+/usr/sbin/gemian-setup
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

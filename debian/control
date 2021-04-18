@@ -1,0 +1,17 @@
+Source: gemian-setup
+Section: utils
+Priority: optional
+Maintainer: Adam Boardman <adamboardman@gmail.com>
+Build-Depends: debhelper (>= 10)
+Standards-Version: 4.1.1
+Homepage: https://github.com/gemian/gemian-setup
+
+Package: gemian-setup
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: First run Gemian setup
+ This package configures some initial settings upon first install
+ .
+ Sets the internal keyboard layout from the setting set by the installer
+ Resets the machine id
+ Resets the ssh_host identity

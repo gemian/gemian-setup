@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+%:
+	dh $@ --with systemd
+
+override_dh_installsystemd:
+	dh_installsystemd --no-start
+
+override_dh_installinit:
+	true
