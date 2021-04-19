@@ -14,6 +14,7 @@ static const char *const defaultKeyboardFile = "/etc/default/keyboard";
 static const std::string_view etcGemianDirectory("/etc/gemian");
 static const char *const machineIdResetFile = "/etc/gemian/machine-id-reset";
 static const char *const sshHostResetFile = "/etc/gemian/ssh-host-reset";
+static const char *const timeZoneSetFile = "/etc/gemian/time-zone-set";
 static const std::string_view etcMachineIdFile("/etc/machine-id");
 static const std::string_view dbusMachineIdFile("/var/lib/dbus/machine-id");
 static const char *const operationPerformedContent = "done";
@@ -38,7 +39,8 @@ int main() {
     paraStream.close();
 
     std::string hwKeyboard(paraVariables["keyboard_layout"]);
-    std::cout << "HWKeyboard: " << hwKeyboard << "\n";
+    std::cout << "HW Keyboard: " << hwKeyboard << "\n";
+    std::cout << "Time Zone: " << paraVariables["time_zone"] << "\n";
 
     if (hwKeyboard.length() > 0) {
         std::ifstream keyboardDefault(defaultKeyboardFile);
@@ -54,16 +56,21 @@ int main() {
             }
         }
         if (!found) {
-            auto set_keymap = "localectl set-x11-keymap " + hwKeyboard;
-            system(set_keymap.c_str());
+            auto setKeymap = "localectl set-x11-keymap " + hwKeyboard;
+            auto err = system(setKeymap.c_str());
+            std::cout << setKeymap << " : " << err << "\n";
         }
     }
 
     if (!std::filesystem::exists(machineIdResetFile)) {
         std::filesystem::remove(etcMachineIdFile);
         std::filesystem::remove(dbusMachineIdFile);
-        system("dbus-uuidgen --ensure=/etc/machine-id");
-        system("dbus-uuidgen --ensure");
+        const char *idGen1Cmd = "dbus-uuidgen --ensure=/etc/machine-id";
+        auto err = system(idGen1Cmd);
+        std::cout << idGen1Cmd << " : " << err << "\n";
+        const char *idGen2Cmd = "dbus-uuidgen --ensure";
+        err = system(idGen2Cmd);
+        std::cout << idGen2Cmd << " : " << err << "\n";
         std::filesystem::create_directory(etcGemianDirectory);
         createFile(machineIdResetFile, operationPerformedContent);
     }
@@ -74,9 +81,18 @@ int main() {
                 std::filesystem::remove(p);
             }
         }
-        system("dpkg-reconfigure openssh-server");
+        const char *reConfigCmd = "dpkg-reconfigure openssh-server";
+        auto err = system(reConfigCmd);
+        std::cout << reConfigCmd << " : " << err << "\n";
         std::filesystem::create_directory(etcGemianDirectory);
         createFile(sshHostResetFile, operationPerformedContent);
+    }
+
+    if (!std::filesystem::exists(timeZoneSetFile) && (paraVariables["time_zone"].length() > 0)) {
+        auto setTimeZone = "timedatectl set-timezone " + paraVariables["time_zone"];
+        auto err = system(setTimeZone.c_str());
+        std::cout << setTimeZone << " : " << err << "\n";
+        createFile(timeZoneSetFile, operationPerformedContent);
     }
 
     return 0;
