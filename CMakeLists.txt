@@ -3,7 +3,7 @@ project(gemian-setup)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(gemian-setup gemian_setup.cpp para_variables.cpp)
+add_executable(gemian-setup gemian_setup.cpp para_variables.cpp locales_identification.cpp)
 
 target_link_libraries(gemian-setup PRIVATE stdc++fs)
 

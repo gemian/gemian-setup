@@ -8,6 +8,7 @@
 #include <filesystem>
 
 #include "para_variables.h"
+#include "locales_identification.h"
 
 static const char *const devBlockPara = "/dev/block/platform/bootdevice/by-name/para";
 static const char *const defaultKeyboardFile = "/etc/default/keyboard";
@@ -15,6 +16,7 @@ static const std::string_view etcGemianDirectory("/etc/gemian");
 static const char *const machineIdResetFile = "/etc/gemian/machine-id-reset";
 static const char *const sshHostResetFile = "/etc/gemian/ssh-host-reset";
 static const char *const timeZoneSetFile = "/etc/gemian/time-zone-set";
+static const char *const localeSetFile = "/etc/gemian/locale-set";
 static const std::string_view etcMachineIdFile("/etc/machine-id");
 static const std::string_view dbusMachineIdFile("/var/lib/dbus/machine-id");
 static const char *const operationPerformedContent = "done";
@@ -47,8 +49,8 @@ int main() {
         if (!keyboardDefault.is_open()) {
             std::cout << "Failed to open file: " << devBlockPara << std::endl;
         }
-        auto found=false;
-        while(!keyboardDefault.eof()) {
+        auto found = false;
+        while (!keyboardDefault.eof()) {
             std::string toCheck;
             keyboardDefault >> toCheck;
             if (toCheck.find("XKBLAYOUT=") != std::string::npos && toCheck.find(hwKeyboard) != std::string::npos) {
@@ -76,7 +78,7 @@ int main() {
     }
 
     if (!std::filesystem::exists(sshHostResetFile)) {
-        for(auto& p: std::filesystem::directory_iterator("/etc/ssh")) {
+        for (auto &p: std::filesystem::directory_iterator("/etc/ssh")) {
             if (p.path().string().find("ssh_host_") != std::string::npos) {
                 std::filesystem::remove(p);
             }
@@ -93,6 +95,25 @@ int main() {
         auto err = system(setTimeZone.c_str());
         std::cout << setTimeZone << " : " << err << "\n";
         createFile(timeZoneSetFile, operationPerformedContent);
+    }
+
+    if (!std::filesystem::exists(localeSetFile) && (paraVariables["keyboard_layout"].length() > 0)) {
+        int layoutIndex = LocalesIdentification::indexForKeyboardLayout(paraVariables["keyboard_layout"]);
+        if (layoutIndex >= 0 && (layoutIndex < LocalesIdentification::getLayoutCodesCount())) {
+            std::string locale(LocalesIdentification::getDefaultLocale(layoutIndex));
+            if (locale.find('*') != std::string::npos && paraVariables["time_zone"].length() > 0) {
+                auto index = LocalesIdentification::indexForArabicCountryTz(paraVariables["time_zone"]);
+                locale = LocalesIdentification::getArabicLocales(index);
+            }
+            auto sedLocalGenCmd = "sed -i /etc/locale.gen -e 's/# " + locale + "/" + locale + "/'";
+            auto err = system(sedLocalGenCmd.c_str());
+            std::cout << sedLocalGenCmd << " : " << err << "\n";
+
+            auto localeGenCmd = "locale-gen";
+            err = system(localeGenCmd);
+            std::cout << localeGenCmd << " : " << err << "\n";
+            createFile(localeSetFile, operationPerformedContent);
+        }
     }
 
     return 0;

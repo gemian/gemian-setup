@@ -16,7 +16,9 @@ file(COPY para-broken.img DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(tests
         test_keyboard_selection.cpp
+        test_locales_identification.cpp
         ../para_variables.cpp
+        ../locales_identification.cpp
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 
