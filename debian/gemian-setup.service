@@ -1,6 +1,6 @@
 [Unit]
 Description=Gemian Setup
-Before=android-rootfs.mount
+Before=local-fs.target var-lib-lxc-android-rootfs.mount
 
 [Service]
 Type=oneshot
