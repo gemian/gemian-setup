@@ -112,6 +112,32 @@ int main() {
             auto localeGenCmd = "locale-gen";
             err = system(localeGenCmd);
             std::cout << localeGenCmd << " : " << err << "\n";
+
+            std::array<char, 128> buffer{};
+            std::string result;
+            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("localectl list-locales", "r"), pclose);
+            if (!pipe) {
+                std::cout << "localectl list-locales" << " : " << "popen() failed!" << "\n";
+            }
+            auto localeDotPos = locale.find('.');
+            if (localeDotPos == std::string::npos) {
+                localeDotPos = locale.find(' ');
+            }
+            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+                result = buffer.data();
+                auto resultDotPos = result.find('.');
+                if (resultDotPos == std::string::npos) {
+                    resultDotPos = result.find(' ');
+                }
+                if (result.substr(0, resultDotPos) == locale.substr(0, localeDotPos)) {
+                    locale = result;
+                }
+            }
+
+            auto localeSetCmd = "localectl set-locale " + locale + "";
+            err = system(localeSetCmd.c_str());
+            std::cout << localeSetCmd << " : " << err << "\n";
+
             createFile(localeSetFile, operationPerformedContent);
         }
     }
