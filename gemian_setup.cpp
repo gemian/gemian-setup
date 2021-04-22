@@ -10,7 +10,7 @@
 #include "para_variables.h"
 #include "locales_identification.h"
 
-static const char *const devBlockPara = "/dev/block/platform/bootdevice/by-name/para";
+static const char *const devBlockPara = "/dev/disk/by-partlabel/para";
 static const char *const defaultKeyboardFile = "/etc/default/keyboard";
 static const std::string_view etcGemianDirectory("/etc/gemian");
 static const char *const machineIdResetFile = "/etc/gemian/machine-id-reset";
