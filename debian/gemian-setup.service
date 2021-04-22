@@ -1,7 +1,7 @@
 [Unit]
 Description=Gemian Setup
 After=local-fs.target
-Before=var-lib-lxc-android-rootfs.mount
+Before=systemd-modules-load.service
 
 [Service]
 Type=oneshot
