@@ -22,125 +22,125 @@ static const std::string_view dbusMachineIdFile("/var/lib/dbus/machine-id");
 static const char *const operationPerformedContent = "done";
 
 void createFile(const std::string &path, std::string_view content) {
-    std::ofstream stream(path);
-    stream << content;
-    stream.close();
+	std::ofstream stream(path);
+	stream << content;
+	stream.close();
 }
 
 int main() {
-    ParaVariables paraVariables;
+	ParaVariables paraVariables;
 
-    std::ifstream paraStream(devBlockPara, std::ios::binary);
-    if (!paraStream.is_open()) {
-        std::cout << "Failed to open file: " << devBlockPara << std::endl;
-    }
+	std::ifstream paraStream(devBlockPara, std::ios::binary);
+	if (!paraStream.is_open()) {
+		std::cout << "Failed to open file: " << devBlockPara << std::endl;
+	}
 
-    if (paraVariables.ReadFromStream(paraStream) != ParaVarErrorNone) {
-        std::cout << "Failed to read file: " << devBlockPara << std::endl;
-    }
-    paraStream.close();
+	if (paraVariables.ReadFromStream(paraStream) != ParaVarErrorNone) {
+		std::cout << "Failed to read file: " << devBlockPara << std::endl;
+	}
+	paraStream.close();
 
-    std::string hwKeyboard(paraVariables["keyboard_layout"]);
-    std::cout << "HW Keyboard: " << hwKeyboard << "\n";
-    std::cout << "Time Zone: " << paraVariables["time_zone"] << "\n";
+	std::string hwKeyboard(paraVariables["keyboard_layout"]);
+	std::cout << "HW Keyboard: " << hwKeyboard << "\n";
+	std::cout << "Time Zone: " << paraVariables["time_zone"] << "\n";
 
-    if (hwKeyboard.length() > 0) {
-        std::ifstream keyboardDefault(defaultKeyboardFile);
-        if (!keyboardDefault.is_open()) {
-            std::cout << "Failed to open file: " << devBlockPara << std::endl;
-        }
-        auto found = false;
-        while (!keyboardDefault.eof()) {
-            std::string toCheck;
-            keyboardDefault >> toCheck;
-            if (toCheck.find("XKBLAYOUT=") != std::string::npos && toCheck.find(hwKeyboard) != std::string::npos) {
-                found = true;
-            }
-        }
-        if (!found) {
-            auto setKeymap = "localectl set-x11-keymap " + hwKeyboard;
-            auto err = system(setKeymap.c_str());
-            std::cout << setKeymap << " : " << err << "\n";
-        }
-    }
+	if (hwKeyboard.length() > 0) {
+		std::ifstream keyboardDefault(defaultKeyboardFile);
+		if (!keyboardDefault.is_open()) {
+			std::cout << "Failed to open file: " << devBlockPara << std::endl;
+		}
+		auto found = false;
+		while (!keyboardDefault.eof()) {
+			std::string toCheck;
+			keyboardDefault >> toCheck;
+			if (toCheck.find("XKBLAYOUT=") != std::string::npos && toCheck.find(hwKeyboard) != std::string::npos) {
+				found = true;
+			}
+		}
+		if (!found) {
+			auto setKeymap = "localectl set-x11-keymap " + hwKeyboard;
+			auto err = system(setKeymap.c_str());
+			std::cout << setKeymap << " : " << err << "\n";
+		}
+	}
 
-    if (!std::filesystem::exists(machineIdResetFile)) {
-        std::filesystem::remove(etcMachineIdFile);
-        std::filesystem::remove(dbusMachineIdFile);
-        const char *idGen1Cmd = "dbus-uuidgen --ensure=/etc/machine-id";
-        auto err = system(idGen1Cmd);
-        std::cout << idGen1Cmd << " : " << err << "\n";
-        const char *idGen2Cmd = "dbus-uuidgen --ensure";
-        err = system(idGen2Cmd);
-        std::cout << idGen2Cmd << " : " << err << "\n";
-        std::filesystem::create_directory(etcGemianDirectory);
-        createFile(machineIdResetFile, operationPerformedContent);
-    }
+	if (!std::filesystem::exists(localeSetFile) && (paraVariables["keyboard_layout"].length() > 0)) {
+		int layoutIndex = LocalesIdentification::indexForKeyboardLayout(paraVariables["keyboard_layout"]);
+		if (layoutIndex >= 0 && (layoutIndex < LocalesIdentification::getLayoutCodesCount())) {
+			std::string locale(LocalesIdentification::getDefaultLocale(layoutIndex));
+			if (locale.find('*') != std::string::npos && paraVariables["time_zone"].length() > 0) {
+				auto index = LocalesIdentification::indexForArabicCountryTz(paraVariables["time_zone"]);
+				locale = LocalesIdentification::getArabicLocales(index);
+			}
+			auto sedLocalGenCmd = "sed -i /etc/locale.gen -e 's/# " + locale + "/" + locale + "/'";
+			auto err = system(sedLocalGenCmd.c_str());
+			std::cout << sedLocalGenCmd << " : " << err << "\n";
 
-    if (!std::filesystem::exists(sshHostResetFile)) {
-        for (auto &p: std::filesystem::directory_iterator("/etc/ssh")) {
-            if (p.path().string().find("ssh_host_") != std::string::npos) {
-                std::filesystem::remove(p);
-            }
-        }
-        const char *reConfigCmd = "dpkg-reconfigure openssh-server";
-        auto err = system(reConfigCmd);
-        std::cout << reConfigCmd << " : " << err << "\n";
-        std::filesystem::create_directory(etcGemianDirectory);
-        createFile(sshHostResetFile, operationPerformedContent);
-    }
+			auto localeGenCmd = "locale-gen";
+			err = system(localeGenCmd);
+			std::cout << localeGenCmd << " : " << err << "\n";
 
-    if (!std::filesystem::exists(timeZoneSetFile) && (paraVariables["time_zone"].length() > 0)) {
-        auto setTimeZone = "timedatectl set-timezone " + paraVariables["time_zone"];
-        auto err = system(setTimeZone.c_str());
-        std::cout << setTimeZone << " : " << err << "\n";
-        createFile(timeZoneSetFile, operationPerformedContent);
-    }
+			std::array<char, 128> buffer{};
+			std::string result;
+			std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("localectl list-locales", "r"), pclose);
+			if (!pipe) {
+				std::cout << "localectl list-locales" << " : " << "popen() failed!" << "\n";
+			}
+			auto localeDotPos = locale.find('.');
+			if (localeDotPos == std::string::npos) {
+				localeDotPos = locale.find(' ');
+			}
+			while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+				result = buffer.data();
+				auto resultDotPos = result.find('.');
+				if (resultDotPos == std::string::npos) {
+					resultDotPos = result.find(' ');
+				}
+				if (result.substr(0, resultDotPos) == locale.substr(0, localeDotPos)) {
+					locale = result;
+				}
+			}
 
-    if (!std::filesystem::exists(localeSetFile) && (paraVariables["keyboard_layout"].length() > 0)) {
-        int layoutIndex = LocalesIdentification::indexForKeyboardLayout(paraVariables["keyboard_layout"]);
-        if (layoutIndex >= 0 && (layoutIndex < LocalesIdentification::getLayoutCodesCount())) {
-            std::string locale(LocalesIdentification::getDefaultLocale(layoutIndex));
-            if (locale.find('*') != std::string::npos && paraVariables["time_zone"].length() > 0) {
-                auto index = LocalesIdentification::indexForArabicCountryTz(paraVariables["time_zone"]);
-                locale = LocalesIdentification::getArabicLocales(index);
-            }
-            auto sedLocalGenCmd = "sed -i /etc/locale.gen -e 's/# " + locale + "/" + locale + "/'";
-            auto err = system(sedLocalGenCmd.c_str());
-            std::cout << sedLocalGenCmd << " : " << err << "\n";
+			auto localeSetCmd = "localectl set-locale " + locale + "";
+			err = system(localeSetCmd.c_str());
+			std::cout << localeSetCmd << " : " << err << "\n";
 
-            auto localeGenCmd = "locale-gen";
-            err = system(localeGenCmd);
-            std::cout << localeGenCmd << " : " << err << "\n";
+			createFile(localeSetFile, operationPerformedContent);
+		}
+	}
 
-            std::array<char, 128> buffer{};
-            std::string result;
-            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("localectl list-locales", "r"), pclose);
-            if (!pipe) {
-                std::cout << "localectl list-locales" << " : " << "popen() failed!" << "\n";
-            }
-            auto localeDotPos = locale.find('.');
-            if (localeDotPos == std::string::npos) {
-                localeDotPos = locale.find(' ');
-            }
-            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-                result = buffer.data();
-                auto resultDotPos = result.find('.');
-                if (resultDotPos == std::string::npos) {
-                    resultDotPos = result.find(' ');
-                }
-                if (result.substr(0, resultDotPos) == locale.substr(0, localeDotPos)) {
-                    locale = result;
-                }
-            }
+	if (!std::filesystem::exists(machineIdResetFile)) {
+		std::filesystem::remove(etcMachineIdFile);
+		std::filesystem::remove(dbusMachineIdFile);
+		const char *idGen1Cmd = "dbus-uuidgen --ensure=/etc/machine-id";
+		auto err = system(idGen1Cmd);
+		std::cout << idGen1Cmd << " : " << err << "\n";
+		const char *idGen2Cmd = "dbus-uuidgen --ensure";
+		err = system(idGen2Cmd);
+		std::cout << idGen2Cmd << " : " << err << "\n";
+		std::filesystem::create_directory(etcGemianDirectory);
+		createFile(machineIdResetFile, operationPerformedContent);
+	}
 
-            auto localeSetCmd = "localectl set-locale " + locale + "";
-            err = system(localeSetCmd.c_str());
-            std::cout << localeSetCmd << " : " << err << "\n";
+	if (!std::filesystem::exists(sshHostResetFile)) {
+		for (auto &p: std::filesystem::directory_iterator("/etc/ssh")) {
+			if (p.path().string().find("ssh_host_") != std::string::npos) {
+				std::filesystem::remove(p);
+			}
+		}
+		const char *reConfigCmd = "dpkg-reconfigure openssh-server";
+		auto err = system(reConfigCmd);
+		std::cout << reConfigCmd << " : " << err << "\n";
+		std::filesystem::create_directory(etcGemianDirectory);
+		createFile(sshHostResetFile, operationPerformedContent);
+	}
 
-            createFile(localeSetFile, operationPerformedContent);
-        }
-    }
+	if (!std::filesystem::exists(timeZoneSetFile) && (paraVariables["time_zone"].length() > 0)) {
+		auto setTimeZone = "timedatectl set-timezone " + paraVariables["time_zone"];
+		auto err = system(setTimeZone.c_str());
+		std::cout << setTimeZone << " : " << err << "\n";
+		createFile(timeZoneSetFile, operationPerformedContent);
+	}
 
-    return 0;
+	return 0;
 }

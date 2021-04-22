@@ -10,10 +10,10 @@
 #include <fstream>
 
 typedef enum {
-    ParaVarErrorNone,
-    ParaVarErrorReadBlock,
-    ParaVarErrorBadSig,
-    ParaVarErrorBadCheckSum
+	ParaVarErrorNone,
+	ParaVarErrorReadBlock,
+	ParaVarErrorBadSig,
+	ParaVarErrorBadCheckSum
 } ParaVarErrors;
 
 static const int ParaEnvBlockRWStart = 0x20000;
@@ -25,17 +25,17 @@ static const int ParaEnvBlockSig1Pos = 0;
 
 class ParaVariables {
 public:
-    ParaVariables();
+	ParaVariables();
 
-    ParaVarErrors ReadFromStream(std::ifstream &stream);
+	ParaVarErrors ReadFromStream(std::ifstream &stream);
 
-    std::string& operator[](const std::string& key);
+	std::string &operator[](const std::string &key);
 
 
-    void Clear();
+	void Clear();
 
-    void WriteToStream(std::ofstream &stream);
+	void WriteToStream(std::ofstream &stream);
 
 private:
-    std::map<std::string, std::string> variables;
+	std::map<std::string, std::string> variables;
 };
