@@ -31,31 +31,32 @@ int main() {
 	ParaVariables paraVariables;
 
 	std::ifstream paraStream(devBlockPara, std::ios::binary);
-	if (!paraStream.is_open()) {
+	if (paraStream.is_open()) {
+		if (paraVariables.ReadFromStream(paraStream) != ParaVarErrorNone) {
+			std::cout << "Failed to read file: " << devBlockPara << std::endl;
+		}
+		paraStream.close();
+	} else {
 		std::cout << "Failed to open file: " << devBlockPara << std::endl;
 	}
-
-	if (paraVariables.ReadFromStream(paraStream) != ParaVarErrorNone) {
-		std::cout << "Failed to read file: " << devBlockPara << std::endl;
-	}
-	paraStream.close();
 
 	std::string hwKeyboard(paraVariables["keyboard_layout"]);
 	std::cout << "HW Keyboard: " << hwKeyboard << "\n";
 	std::cout << "Time Zone: " << paraVariables["time_zone"] << "\n";
 
 	if (hwKeyboard.length() > 0) {
-		std::ifstream keyboardDefault(defaultKeyboardFile);
-		if (!keyboardDefault.is_open()) {
-			std::cout << "Failed to open file: " << devBlockPara << std::endl;
-		}
 		auto found = false;
-		while (!keyboardDefault.eof()) {
-			std::string toCheck;
-			keyboardDefault >> toCheck;
-			if (toCheck.find("XKBLAYOUT=") != std::string::npos && toCheck.find(hwKeyboard) != std::string::npos) {
-				found = true;
+		std::ifstream keyboardDefault(defaultKeyboardFile);
+		if (keyboardDefault.is_open()) {
+			while (!keyboardDefault.eof()) {
+				std::string toCheck;
+				keyboardDefault >> toCheck;
+				if (toCheck.find("XKBLAYOUT=") != std::string::npos && toCheck.find(hwKeyboard) != std::string::npos) {
+					found = true;
+				}
 			}
+		} else {
+			std::cout << "Failed to open file: " << defaultKeyboardFile << std::endl;
 		}
 		if (!found) {
 			auto setKeymap = "localectl set-x11-keymap " + hwKeyboard;
@@ -72,6 +73,9 @@ int main() {
 				auto index = LocalesIdentification::indexForArabicCountryTz(paraVariables["time_zone"]);
 				locale = LocalesIdentification::getArabicLocales(index);
 			}
+			if (paraVariables["language"].length() > 0 && paraVariables["language"] != "auto") {
+			    locale = paraVariables["language"]+".UTF-8";
+			}
 			auto sedLocalGenCmd = "sed -i /etc/locale.gen -e 's/# " + locale + "/" + locale + "/'";
 			auto err = system(sedLocalGenCmd.c_str());
 			std::cout << sedLocalGenCmd << " : " << err << "\n";
@@ -80,7 +84,7 @@ int main() {
 			err = system(localeGenCmd);
 			std::cout << localeGenCmd << " : " << err << "\n";
 
-			std::array<char, 128> buffer{};
+			char buffer[128];
 			std::string result;
 			std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("localectl list-locales", "r"), pclose);
 			if (!pipe) {
@@ -90,8 +94,8 @@ int main() {
 			if (localeDotPos == std::string::npos) {
 				localeDotPos = locale.find(' ');
 			}
-			while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-				result = buffer.data();
+			while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+				result = buffer;
 				auto resultDotPos = result.find('.');
 				if (resultDotPos == std::string::npos) {
 					resultDotPos = result.find(' ');
