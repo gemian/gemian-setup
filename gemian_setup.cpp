@@ -46,6 +46,7 @@ int main() {
 
 	if (hwKeyboard.length() > 0) {
 		auto found = false;
+		auto foundModel = false;
 		std::ifstream keyboardDefault(defaultKeyboardFile);
 		if (keyboardDefault.is_open()) {
 			while (!keyboardDefault.eof()) {
@@ -54,11 +55,14 @@ int main() {
 				if (toCheck.find("XKBLAYOUT=") != std::string::npos && toCheck.find(hwKeyboard) != std::string::npos) {
 					found = true;
 				}
+                if (toCheck.find("XKBMODEL=") != std::string::npos) {
+                    foundModel = true;
+                }
 			}
 		} else {
 			std::cout << "Failed to open file: " << defaultKeyboardFile << std::endl;
 		}
-		if (!found) {
+		if (!found || foundModel) {
 			auto setKeymap = "localectl set-x11-keymap " + hwKeyboard;
 			auto err = system(setKeymap.c_str());
 			std::cout << setKeymap << " : " << err << "\n";
